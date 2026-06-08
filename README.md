@@ -37,6 +37,8 @@ Install only lightweight local tooling here when needed. GPU-heavy training
 dependencies are owned by the Modal image in `train/modal_train.py`.
 
 Modal CLI notes are in `docs/modal_cli.md`.
+Retraining and evaluation steps are in `docs/retrain_runbook.md` and
+`docs/evaluation_plan.md`.
 
 ## Data
 
