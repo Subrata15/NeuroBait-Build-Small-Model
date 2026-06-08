@@ -70,6 +70,12 @@ Run training:
 modal run train/modal_train.py
 ```
 
+Remote preflight before paid training:
+
+```bash
+modal run train/modal_train.py --run-preflight --no-run-train
+```
+
 Optional upload/merge:
 
 ```bash

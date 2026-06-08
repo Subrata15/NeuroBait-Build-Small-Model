@@ -37,6 +37,58 @@ out_vol = modal.Volume.from_name("neurobait-out", create_if_missing=True)
 @app.function(
     image=image,
     gpu="H100",
+    timeout=10 * 60,
+    volumes={"/root/.cache/huggingface": hf_cache, "/out": out_vol},
+    secrets=[modal.Secret.from_name("huggingface")],
+)
+def preflight() -> dict:
+    """Check the remote Modal runtime before spending a full training run."""
+
+    import os
+    import subprocess
+
+    import torch
+    import transformers
+    import trl
+    import peft
+    import datasets
+    import unsloth
+
+    nvidia_smi = subprocess.run(
+        ["nvidia-smi"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    gpu = {}
+    if torch.cuda.is_available():
+        capability = torch.cuda.get_device_capability()
+        gpu = {
+            "name": torch.cuda.get_device_name(0),
+            "capability": f"sm_{capability[0]}{capability[1]}",
+            "device_count": torch.cuda.device_count(),
+        }
+
+    return {
+        "hf_token_present": bool(os.environ.get("HF_TOKEN")),
+        "torch": torch.__version__,
+        "cuda": torch.version.cuda,
+        "cuda_available": torch.cuda.is_available(),
+        "gpu": gpu,
+        "transformers": transformers.__version__,
+        "trl": trl.__version__,
+        "peft": peft.__version__,
+        "datasets": datasets.__version__,
+        "unsloth": unsloth.__version__,
+        "nvidia_smi": nvidia_smi.stdout[-4000:],
+        "nvidia_smi_stderr": nvidia_smi.stderr[-1000:],
+    }
+
+
+@app.function(
+    image=image,
+    gpu="H100",
     timeout=60 * 60,
     volumes={"/root/.cache/huggingface": hf_cache, "/out": out_vol},
     secrets=[modal.Secret.from_name("huggingface")],
@@ -113,13 +165,18 @@ def merge_and_push(repo_id: str = DEFAULT_MERGED_REPO) -> str:
 
 @app.local_entrypoint()
 def main(
+    run_preflight: bool = False,
+    run_train: bool = True,
     push_lora: bool = False,
     merge: bool = False,
     lora_repo: str = DEFAULT_LORA_REPO,
     merged_repo: str = DEFAULT_MERGED_REPO,
 ) -> None:
-    summary = train.remote()
-    print(summary)
+    if run_preflight:
+        print("preflight:", preflight.remote())
+    if run_train:
+        summary = train.remote()
+        print("train:", summary)
     if push_lora:
         print("lora repo:", push_lora_to_hub.remote(lora_repo))
     if merge:
