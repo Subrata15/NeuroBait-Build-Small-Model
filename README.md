@@ -36,6 +36,8 @@ python --version
 Install only lightweight local tooling here when needed. GPU-heavy training
 dependencies are owned by the Modal image in `train/modal_train.py`.
 
+Modal CLI notes are in `docs/modal_cli.md`.
+
 ## Data
 
 Copy the upstream final dataset out-of-band:
