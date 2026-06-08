@@ -13,7 +13,6 @@ app = modal.App(APP_NAME)
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install("torch==2.6.0", index_url="https://download.pytorch.org/whl/cu124")
     .pip_install("unsloth", "unsloth_zoo")
     .pip_install(
         "trl==0.24",
@@ -41,18 +40,19 @@ out_vol = modal.Volume.from_name("neurobait-out", create_if_missing=True)
     volumes={"/root/.cache/huggingface": hf_cache, "/out": out_vol},
     secrets=[modal.Secret.from_name("huggingface")],
 )
-def preflight() -> dict:
+def preflight() -> str:
     """Check the remote Modal runtime before spending a full training run."""
 
+    import json
     import os
     import subprocess
 
+    import unsloth
     import torch
+    import datasets
+    import peft
     import transformers
     import trl
-    import peft
-    import datasets
-    import unsloth
 
     nvidia_smi = subprocess.run(
         ["nvidia-smi"],
@@ -70,7 +70,7 @@ def preflight() -> dict:
             "device_count": torch.cuda.device_count(),
         }
 
-    return {
+    result = {
         "hf_token_present": bool(os.environ.get("HF_TOKEN")),
         "torch": torch.__version__,
         "cuda": torch.version.cuda,
@@ -84,6 +84,7 @@ def preflight() -> dict:
         "nvidia_smi": nvidia_smi.stdout[-4000:],
         "nvidia_smi_stderr": nvidia_smi.stderr[-1000:],
     }
+    return json.dumps(result, indent=2)
 
 
 @app.function(
