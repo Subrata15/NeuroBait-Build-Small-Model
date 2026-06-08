@@ -6,8 +6,9 @@ import modal
 
 
 APP_NAME = "neurobait-small-model"
-DEFAULT_LORA_REPO = "USER/neurobait-gemma4-26b-a4b-lora"
-DEFAULT_MERGED_REPO = "USER/neurobait-gemma4-26b-a4b"
+DEFAULT_LORA_REPO = "build-small-hackathon/NeuroBait"
+DEFAULT_MERGED_REPO = "build-small-hackathon/NeuroBait-Merged"
+DEFAULT_SPACE_REPO = "build-small-hackathon/NeuroBait"
 
 app = modal.App(APP_NAME)
 
@@ -27,6 +28,8 @@ image = (
     .add_local_file("train/train_core.py", "/root/neurobait/train_core.py")
     .add_local_file("data/train.jsonl", "/data/train.jsonl")
     .add_local_file("data/eval.jsonl", "/data/eval.jsonl")
+    .add_local_file("model-card/README.md", "/root/neurobait/model-card/README.md")
+    .add_local_dir("deploy", "/root/neurobait/deploy")
 )
 
 hf_cache = modal.Volume.from_name("hf-cache", create_if_missing=True)
@@ -119,14 +122,115 @@ def train() -> dict:
     secrets=[modal.Secret.from_name("huggingface")],
 )
 def push_lora_to_hub(repo_id: str = DEFAULT_LORA_REPO) -> str:
+    import shutil
+
     from huggingface_hub import HfApi
 
+    api = HfApi()
+    api.create_repo(repo_id=repo_id, repo_type="model", private=False, exist_ok=True)
+    shutil.copyfile("/root/neurobait/model-card/README.md", "/out/neurobait-lora-run3/README.md")
     HfApi().upload_folder(
         folder_path="/out/neurobait-lora-run3",
         repo_id=repo_id,
         repo_type="model",
     )
     return repo_id
+
+
+@app.function(
+    image=image,
+    timeout=30 * 60,
+    secrets=[modal.Secret.from_name("huggingface")],
+)
+def push_space_to_hub(repo_id: str = DEFAULT_SPACE_REPO) -> str:
+    from huggingface_hub import HfApi
+
+    api = HfApi()
+    api.create_repo(
+        repo_id=repo_id,
+        repo_type="space",
+        space_sdk="gradio",
+        private=False,
+        exist_ok=True,
+    )
+    api.upload_folder(
+        folder_path="/root/neurobait/deploy",
+        repo_id=repo_id,
+        repo_type="space",
+        ignore_patterns=["__pycache__/*", "*.pyc"],
+        delete_patterns=["__pycache__/*", "*.pyc"],
+    )
+    return repo_id
+
+
+@app.function(
+    image=image,
+    timeout=10 * 60,
+    secrets=[modal.Secret.from_name("huggingface")],
+)
+def set_space_hardware(repo_id: str = DEFAULT_SPACE_REPO, hardware: str = "zero-a10g") -> str:
+    import json
+
+    from huggingface_hub import HfApi
+
+    api = HfApi()
+    runtime = api.request_space_hardware(repo_id=repo_id, hardware=hardware)
+    return json.dumps(
+        {
+            "repo_id": repo_id,
+            "requested": hardware,
+            "stage": getattr(runtime, "stage", None),
+            "hardware": getattr(runtime, "hardware", None),
+            "requested_hardware": getattr(runtime, "requested_hardware", None),
+            "raw": getattr(runtime, "raw", None),
+        },
+        indent=2,
+        default=str,
+    )
+
+
+@app.function(
+    image=image,
+    timeout=10 * 60,
+    secrets=[modal.Secret.from_name("huggingface")],
+)
+def get_space_runtime(repo_id: str = DEFAULT_SPACE_REPO) -> str:
+    import json
+
+    from huggingface_hub import HfApi
+
+    runtime = HfApi().get_space_runtime(repo_id=repo_id)
+    return json.dumps(
+        {
+            "repo_id": repo_id,
+            "stage": getattr(runtime, "stage", None),
+            "hardware": getattr(runtime, "hardware", None),
+            "requested_hardware": getattr(runtime, "requested_hardware", None),
+            "sleep_time": getattr(runtime, "sleep_time", None),
+            "raw": getattr(runtime, "raw", None),
+        },
+        indent=2,
+        default=str,
+    )
+
+
+@app.function(
+    image=image,
+    timeout=10 * 60,
+    secrets=[modal.Secret.from_name("huggingface")],
+)
+def get_space_logs(repo_id: str = DEFAULT_SPACE_REPO) -> str:
+    import os
+
+    import requests
+
+    token = os.environ["HF_TOKEN"]
+    response = requests.get(
+        f"https://huggingface.co/api/spaces/{repo_id}/logs",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=60,
+    )
+    return response.text[-12000:]
 
 
 @app.function(
@@ -169,8 +273,14 @@ def main(
     run_preflight: bool = False,
     run_train: bool = True,
     push_lora: bool = False,
+    push_space: bool = False,
+    check_space: bool = False,
+    check_logs: bool = False,
+    set_hardware: bool = False,
+    hardware: str = "zero-a10g",
     merge: bool = False,
     lora_repo: str = DEFAULT_LORA_REPO,
+    space_repo: str = DEFAULT_SPACE_REPO,
     merged_repo: str = DEFAULT_MERGED_REPO,
 ) -> None:
     if run_preflight:
@@ -180,5 +290,13 @@ def main(
         print("train:", summary)
     if push_lora:
         print("lora repo:", push_lora_to_hub.remote(lora_repo))
+    if push_space:
+        print("space repo:", push_space_to_hub.remote(space_repo))
+    if set_hardware:
+        print("space hardware:", set_space_hardware.remote(space_repo, hardware))
+    if check_space:
+        print("space runtime:", get_space_runtime.remote(space_repo))
+    if check_logs:
+        print("space logs:", get_space_logs.remote(space_repo))
     if merge:
         print("merged repo:", merge_and_push.remote(merged_repo))

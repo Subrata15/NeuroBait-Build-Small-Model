@@ -77,6 +77,9 @@ Download adapter locally after training:
 modal volume get neurobait-out neurobait-lora-run3 ./neurobait-lora-run3
 ```
 
+If that creates a plain file instead of a directory, remove it and download the
+artifact files one by one from `modal volume ls neurobait-out neurobait-lora-run3`.
+
 Do not commit the adapter. It is ignored by `.gitignore`.
 
 Keep the Modal Volume copy until:
@@ -132,10 +135,10 @@ second signal after the project-specific NeuroBait eval.
 
 Do not push to Hugging Face until target org/repo names are confirmed.
 
-Expected repos:
+Current public target repos:
 
-- adapter model repo
-- merged model repo
-- Space repo
+- model adapter repo: `build-small-hackathon/NeuroBait`
+- Space repo: `build-small-hackathon/NeuroBait`
+- optional merged model repo: `build-small-hackathon/NeuroBait-Merged`
 
 Push only after eval is acceptable.

@@ -1,31 +1,46 @@
-# NeuroBait HF Space
+---
+title: NeuroBait
+colorFrom: green
+colorTo: blue
+sdk: gradio
+app_file: app.py
+pinned: false
+license: apache-2.0
+short_description: ADHD-friendly task initiation with one tiny next move.
+---
 
-This directory is the source for the Hugging Face Space repo. The Space should
-remain separate from the GitHub source repo and the HF Model repo.
+# NeuroBait
 
-## Files
+NeuroBait is an ADHD-friendly task-initiation assistant. It is designed to help
+the user find one tiny next move without shame, streak pressure, or a full
+productivity lecture.
 
-- `app.py`: Gradio chat app
-- `requirements.txt`: Space dependencies
-
-## Space Configuration
-
-Set this environment variable in the HF Space:
+Target URL:
 
 ```text
-MODEL_ID=USER/neurobait-gemma4-26b-a4b
+https://huggingface.co/spaces/build-small-hackathon/NeuroBait
 ```
 
-The model repo should point to the merged model intended for inference.
+This Space loads through Unsloth:
 
-## Hardware
+- Base model: `unsloth/gemma-4-26b-a4b-it`
+- LoRA adapter: `build-small-hackathon/NeuroBait`
 
-A merged bf16 Gemma 4 26B-A4B model is large. Use a GPU tier that can actually
-load the final model, or switch the app to a quantized loading path before using
-smaller hardware.
+## Runtime
 
-## App-Initiated Openers
+The default app path uses Unsloth 4-bit loading for the NeuroBait LoRA adapter.
+The `@spaces.GPU` call requests ZeroGPU `xlarge` with a 60-second function
+window because the model is a 26B MoE adapter stack.
 
-Proactive openers belong in application logic. If the app wants to start with an
-assistant message, inject that opener into chat history before the next user
-turn. Do not ask the model to decide when to initiate contact.
+Expected environment variables:
+
+```text
+BASE_MODEL=unsloth/gemma-4-26b-a4b-it
+ADAPTER_ID=build-small-hackathon/NeuroBait
+LOAD_IN_4BIT=1
+MAX_NEW_TOKENS=160
+LOAD_AT_STARTUP=0
+```
+
+If the base model requires authentication in the Space runtime, add `HF_TOKEN`
+as a Space secret.

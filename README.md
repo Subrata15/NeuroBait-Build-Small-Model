@@ -5,6 +5,16 @@ This repo is the engineering source of truth for training, evaluation, and
 deployment scaffolding. Dataset and model artifacts are intentionally kept out
 of Git.
 
+## Hugging Face Targets
+
+Short public slugs keep the hackathon URLs readable:
+
+- Model repo: `https://huggingface.co/build-small-hackathon/NeuroBait`
+- Space app: `https://huggingface.co/spaces/build-small-hackathon/NeuroBait`
+
+The visible app title remains `NeuroBait`, with the submission/story context
+documented in this GitHub repo and the model/Space cards.
+
 ## Architecture
 
 There are three separate operational artifacts:
@@ -39,6 +49,7 @@ dependencies are owned by the Modal image in `train/modal_train.py`.
 Modal CLI notes are in `docs/modal_cli.md`.
 Retraining and evaluation steps are in `docs/retrain_runbook.md` and
 `docs/evaluation_plan.md`.
+Hugging Face deployment status is in `docs/hf_deployment_report.md`.
 
 ## Data
 
@@ -83,8 +94,9 @@ modal run train/modal_train.py --run-preflight --no-run-train
 Optional upload/merge:
 
 ```bash
-modal run train/modal_train.py --push-lora
-modal run train/modal_train.py --push-lora --merge
+modal run train/modal_train.py --no-run-train --push-lora
+modal run train/modal_train.py --no-run-train --push-space
+modal run train/modal_train.py --no-run-train --push-lora --merge
 ```
 
 Locked training design:
@@ -128,15 +140,18 @@ deploy/app.py
 deploy/requirements.txt
 ```
 
-Set `MODEL_ID` in the Space environment to the merged HF Model repo, for example:
+The default Space app loads the LoRA adapter from:
 
 ```text
-USER/neurobait-gemma4-26b-a4b
+ADAPTER_ID=build-small-hackathon/NeuroBait
+BASE_MODEL=unsloth/gemma-4-26b-a4b-it
+LOAD_IN_4BIT=1
 ```
 
 The Space uses Gradio and `@spaces.GPU`. Hardware must be chosen based on the
-final model format. A merged bf16 26B model needs a large GPU; a quantized or
-4-bit loading path may be needed for smaller Space hardware.
+final model format. The current deployment path uses 4-bit base loading plus the
+LoRA adapter, but it still needs direct testing on HF Space hardware because the
+base model is a 26B MoE model.
 
 ## Repository Boundaries
 
