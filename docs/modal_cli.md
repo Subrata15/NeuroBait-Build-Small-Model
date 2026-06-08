@@ -12,6 +12,11 @@ source /media/haris-subrata/Work/llm/agent_analytics/venv/bin/activate
 python -m pip install modal
 ```
 
+Keep the local environment lightweight. Do not install large GPU stacks locally
+unless there is a concrete need; home/root storage may have only a few GB free.
+Large dependencies should live in Modal images or in explicitly chosen project
+storage/cache locations.
+
 ## Authenticate
 
 ```bash
