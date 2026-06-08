@@ -1,0 +1,22 @@
+# Dataset is handed over out-of-band.
+data/
+*.jsonl
+
+# Model artifacts.
+*.safetensors
+*.gguf
+neurobait-lora*/
+merged*/
+outputs/
+
+# Local development.
+.git-local/
+local-dev/
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# Hugging Face / Modal local caches.
+.cache/
+.modal/

@@ -1,0 +1,6 @@
+spaces
+gradio
+transformers==5.5.0
+accelerate
+torch
+bitsandbytes
