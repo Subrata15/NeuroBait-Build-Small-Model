@@ -1,77 +1,98 @@
-# NeuroBait Build Small Model
+# NeuroBait
 
-NeuroBait is a fine-tuned assistant for ADHD / neurodivergent task initiation.
-This repo is the engineering source of truth for training, evaluation, and
-deployment scaffolding. Dataset and model artifacts are intentionally kept out
-of Git.
+NeuroBait is an ADHD-friendly AI companion for task initiation. It is built for
+the moment when a task is not intellectually hard, but still feels impossible to
+start.
 
-## Hugging Face Targets
+Instead of turning that friction into a productivity lecture, NeuroBait responds
+with short, warm, agency-preserving language. It avoids shame, streak pressure,
+diagnosis-like framing, and visible prompt labels such as `Micro-action`, `Hook`,
+or `Stakes`.
 
-Short public slugs keep the hackathon URLs readable:
+## Live Demo
 
-- Model repo: `https://huggingface.co/build-small-hackathon/NeuroBait`
-- Space app: `https://huggingface.co/spaces/build-small-hackathon/NeuroBait`
+- Hugging Face Space: https://huggingface.co/spaces/build-small-hackathon/NeuroBait
+- Model adapter: https://huggingface.co/build-small-hackathon/NeuroBait
 
-The visible app title remains `NeuroBait`, with the submission/story context
-documented in this GitHub repo and the model/Space cards.
+## Hackathon Submission
 
-## Architecture
+NeuroBait is a Build Small Hackathon submission.
 
-There are three separate operational artifacts:
+- Primary track: **Backyard AI**
+- Why: the app is designed around a real everyday ADHD friction - starting the
+  thing that already matters - rather than a generic chatbot or productivity
+  template.
+- Bonus quest fit: **Well-Tuned**, because NeuroBait uses a fine-tuned model
+  published on Hugging Face.
+- Bonus quest fit: **Off-Brand**, because the Space uses a custom Gradio
+  interface instead of the default app look.
+- Sponsor fit: **Modal-powered**, because fine-tuning and generation eval were
+  run on Modal GPU infrastructure.
 
-1. GitHub repo: training, eval, deploy source code, and docs.
-2. Hugging Face Model repo: LoRA adapter and/or merged model weights.
-3. Hugging Face Space repo: Gradio app that loads the HF Model repo.
+## What We Built
 
-Flow:
+The model is a LoRA fine-tune of `unsloth/gemma-3-12b-it`, trained on a small
+hand-curated bilingual Indonesian/English dataset built from real ADHD task
+initiation friction.
 
-```text
-GitHub source code
-  -> Modal.com fine-tune/eval/merge
-  -> HF Model repo
-  -> HF Space Gradio app
-```
+The main lesson was simple: for a voice and behavior layer, dataset quality beat
+model size. The fine-tune is intentionally narrow. It is not trying to become a
+general therapist, planner, or productivity operating system.
 
-`github-hf.svg` contains the same architecture as a visual diagram.
+## The Stack
 
-## Local Development
+A real model, trained on a real budget:
 
-Use the shared LLM development venv:
+- **Base:** `unsloth/gemma-3-12b-it` (dense Gemma 3 12B,
+  `Gemma3ForConditionalGeneration`)
+- **Method:** 16-bit LoRA, not QLoRA, via Unsloth
+- **LoRA:** `r=16`, `alpha=16`, `dropout=0`
+- **Epochs:** `3` | **LR:** `2e-4` | **Batch:** `1 x grad_accum 8` |
+  **Max sequence:** `2048`
+- **Chat template:** `gemma-3`, response markers `<start_of_turn>user\n` and
+  `<start_of_turn>model\n`
+- `save_strategy="no"` to avoid the known Unsloth/TRL checkpoint pickle bug
+- **Train/eval:** Modal H100 80GB GPU
+- **Deploy:** Hugging Face Space on ZeroGPU using Gradio, `transformers`,
+  `peft`, and 4-bit bitsandbytes NF4 runtime loading
+- **Data:** small, hand-curated, synthetic, and grounded in real ADHD friction,
+  not generic productivity tropes
 
-```bash
-source /media/haris-subrata/Work/llm/agent_analytics/venv/bin/activate
-python --version
-```
+## Results
 
-Install only lightweight local tooling here when needed. GPU-heavy training
-dependencies are owned by the Modal image in `train/modal_train.py`.
+Run #4 completed 102 training steps.
 
-Modal CLI notes are in `docs/modal_cli.md`.
-Retraining and evaluation steps are in `docs/retrain_runbook.md` and
-`docs/evaluation_plan.md`.
-Hugging Face deployment status is in `docs/hf_deployment_report.md`.
+- Train conversations: 270
+- Eval conversations: 30
+- Train loss: 1.7501
+- Eval loss: 1.8844
 
-## Data
+Generation eval over 8 held-out or novel prompts:
 
-Copy the upstream final dataset out-of-band:
+- Base persona average: 2.25 / 4
+- Fine-tuned persona average: 4.0 / 4
+- Base average words: 80.4
+- Fine-tuned average words: 55.1
+- Base label leaks: 5
+- Fine-tuned label leaks: 0
 
-```text
-data/train.jsonl
-data/eval.jsonl
-```
+The loss is only a weak diagnostic here. The important result is behavioral: the
+fine-tuned model became shorter, warmer, more consistent, and stopped leaking
+the internal recipe labels that the base model often exposed.
 
-Expected run #3 dataset:
+## Repository Map
 
-- `train.jsonl`: 270 conversations
-- `eval.jsonl`: 30 conversations
-- bilingual ID/EN
-- each row has `messages[]` with the official NeuroBait system prompt prepended
+- `train/`: Modal + Unsloth fine-tuning entrypoints
+- `eval/`: local and Modal generation evaluation scripts
+- `deploy/`: Hugging Face Space app source
+- `model-card/`: README used for the Hugging Face model repo
+- `docs/`: runbooks, deployment notes, and evaluation notes
 
-`data/` and `*.jsonl` are gitignored.
+The dataset and trained adapter artifacts are intentionally kept out of Git.
 
-## Training On Modal
+## Reproduce
 
-One-time setup:
+Install the Modal CLI, authenticate, and create a Hugging Face secret:
 
 ```bash
 pip install modal
@@ -79,94 +100,26 @@ modal token new
 modal secret create huggingface HF_TOKEN=hf_xxx
 ```
 
-Run training:
-
-```bash
-modal run train/modal_train.py
-```
-
-Remote preflight before paid training:
+Run a remote preflight:
 
 ```bash
 modal run train/modal_train.py --run-preflight --no-run-train
 ```
 
-Optional upload/merge:
+Train:
+
+```bash
+modal run train/modal_train.py
+```
+
+Push the LoRA adapter and Space:
 
 ```bash
 modal run train/modal_train.py --no-run-train --push-lora
-modal run train/modal_train.py --no-run-train --push-space
-modal run train/modal_train.py --no-run-train --push-lora --merge
+modal run train/modal_train.py --no-run-train --push-space --set-hardware
 ```
 
-Locked training design:
+## Safety Scope
 
-- Base: `unsloth/gemma-4-26b-a4b-it`
-- Method: 16-bit LoRA, not QLoRA
-- LoRA: `r=16`, `alpha=16`, `dropout=0`
-- Epochs: `3`
-- LR: `2e-4`
-- Batch: `1 x grad_accum 8`
-- Max sequence: `2048`
-- Chat template: `gemma-4`
-- Response markers: `<|turn>user\n` and `<|turn>model\n`
-- `save_strategy="no"` to avoid the known Unsloth/TRL checkpoint pickle bug
-
-Expected step count for 270 train examples:
-
-```text
-ceil(270 / 8) * 3 = 102
-```
-
-## Evaluation
-
-Local heuristic check:
-
-```bash
-python eval/eval_neurobait.py data/eval.jsonl --output outputs/eval_reference.json
-python eval/make_report.py outputs/eval_reference.json
-```
-
-This is not a replacement for GPU qualitative eval. It gives a fast local check
-for label leaks, rough response length, and action-cue coverage. Run #3 must
-include separate English-transfer review on held-out EN examples.
-
-## HF Space
-
-`deploy/` is the source for the HF Space repo:
-
-```text
-deploy/app.py
-deploy/requirements.txt
-```
-
-The default Space app loads the LoRA adapter from:
-
-```text
-ADAPTER_ID=build-small-hackathon/NeuroBait
-BASE_MODEL=unsloth/gemma-4-26b-a4b-it
-LOAD_IN_4BIT=1
-```
-
-The Space uses Gradio and `@spaces.GPU`. Hardware must be chosen based on the
-final model format. The current deployment path uses 4-bit base loading plus the
-LoRA adapter, but it still needs direct testing on HF Space hardware because the
-base model is a 26B MoE model.
-
-## Repository Boundaries
-
-Commit to GitHub:
-
-- `train/`
-- `eval/`
-- `deploy/`
-- docs and diagrams
-
-Do not commit:
-
-- dataset JSONL
-- LoRA adapters
-- merged models
-- GGUF files
-- generated eval outputs
-- tokens or `.env`
+NeuroBait is not a medical device, diagnostic tool, therapist, or emergency
+support system. It is a small-model demo for gentle task-initiation support.

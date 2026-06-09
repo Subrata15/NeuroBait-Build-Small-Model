@@ -6,41 +6,59 @@ sdk: gradio
 app_file: app.py
 pinned: false
 license: apache-2.0
-short_description: ADHD-friendly task initiation with one tiny next move.
+short_description: An ADHD-friendly space and gentle boost for your everyday.
 ---
 
 # NeuroBait
 
-NeuroBait is an ADHD-friendly task-initiation assistant. It is designed to help
-the user find one tiny next move without shame, streak pressure, or a full
-productivity lecture.
+NeuroBait is an ADHD-friendly companion for task initiation: a warm space and a
+gentle boost for the moment when starting feels heavier than the task itself.
 
-Target URL:
+It is built to avoid shame, streak pressure, and generic productivity advice.
+The app uses a fine-tuned small model, not an external LLM API.
 
-```text
-https://huggingface.co/spaces/build-small-hackathon/NeuroBait
-```
+## Build Small Hackathon
 
-This Space loads through Unsloth:
+- Primary track: **Backyard AI**
+- Bonus quest fit: **Well-Tuned**
+- Bonus quest fit: **Off-Brand**
+- Sponsor fit: **Modal-powered**
 
-- Base model: `unsloth/gemma-4-26b-a4b-it`
-- LoRA adapter: `build-small-hackathon/NeuroBait`
+NeuroBait was fine-tuned with Modal and deployed as a Gradio app on Hugging Face
+ZeroGPU.
+
+## Model
+
+- Base model: `unsloth/gemma-3-12b-it`
+- Adapter: `build-small-hackathon/NeuroBait`
+- Method: 16-bit LoRA via Unsloth
+- Runtime: `transformers` + `peft`
+- Quantization: 4-bit bitsandbytes NF4 inside the `@spaces.GPU` window
 
 ## Runtime
-
-The default app path uses Unsloth 4-bit loading for the NeuroBait LoRA adapter.
-The `@spaces.GPU` call requests ZeroGPU `xlarge` with a 60-second function
-window because the model is a 26B MoE adapter stack.
 
 Expected environment variables:
 
 ```text
-BASE_MODEL=unsloth/gemma-4-26b-a4b-it
+BASE_MODEL=unsloth/gemma-3-12b-it
 ADAPTER_ID=build-small-hackathon/NeuroBait
 LOAD_IN_4BIT=1
-MAX_NEW_TOKENS=160
-LOAD_AT_STARTUP=0
+MAX_NEW_TOKENS=220
+PREWARM=1
 ```
 
-If the base model requires authentication in the Space runtime, add `HF_TOKEN`
-as a Space secret.
+Weights are pre-warmed to the Space cache on CPU at import so the GPU window can
+focus on quantized loading and generation.
+
+## Interface
+
+The interface uses custom Gradio styling, dark earthy colors, anti-shame copy,
+and a simple mood check-in:
+
+- Calm
+- Tired
+- Anxious
+- Focused
+
+The mood choice lightly adapts the response style while keeping the same model
+and safety scope.
